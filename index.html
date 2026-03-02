@@ -6,86 +6,149 @@
     <title>Baler Sky Monitor</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
-        body { background: #1a1a2e; display: flex; justify-content: center; align-items: center; min-height: 100vh; color: white; padding: 20px; }
-        .container { background: rgba(255, 255, 255, 0.1); padding: 2rem; border-radius: 30px; backdrop-filter: blur(20px); width: 100%; max-width: 450px; text-align: center; border: 1px solid rgba(255,255,255,0.1); }
+        body { 
+            background: #1a1a2e; 
+            display: flex; justify-content: center; align-items: center; 
+            min-height: 100vh; color: white; transition: background 0.8s ease;
+            padding: 20px;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 2rem; border-radius: 30px;
+            backdrop-filter: blur(20px);
+            box-shadow: 0 12px 40px rgba(0,0,0,0.6);
+            width: 100%; max-width: 450px; text-align: center;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
         .temp { font-size: 4rem; font-weight: bold; margin: 5px 0; }
-        .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin: 20px 0; }
-        .stat-card { background: rgba(0, 0, 0, 0.2); padding: 15px; border-radius: 15px; }
-        .tip-box { margin: 20px 0; padding: 15px; background: rgba(255, 255, 255, 0.2); border-radius: 15px; border-left: 5px solid #4ecca3; font-size: 0.9rem; }
-        button { width: 100%; padding: 15px; border-radius: 50px; border: none; background: #4ecca3; color: white; cursor: pointer; font-weight: bold; margin-bottom: 10px; }
-        .test-btn { background: #6c757d; font-size: 0.8rem; padding: 10px; }
+        .stat-grid { 
+            display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin: 20px 0;
+        }
+        .stat-card {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 15px; border-radius: 15px;
+        }
+        .stat-card p { font-size: 0.8rem; opacity: 0.8; text-transform: uppercase; }
+        .stat-card span { display: block; font-size: 1.1rem; font-weight: bold; margin-top: 5px; }
+        .tip-box {
+            margin: 20px 0; padding: 15px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 15px; font-weight: 500; border-left: 5px solid #4ecca3;
+            font-size: 0.9rem;
+        }
+        button { 
+            width: 100%; padding: 15px; border-radius: 50px; 
+            border: none; background: #4ecca3; color: white; 
+            cursor: pointer; font-weight: bold; text-transform: uppercase;
+        }
     </style>
 </head>
 <body>
 
     <div class="container">
         <h1>Baler, Aurora</h1>
-        <p id="dateTime" style="opacity: 0.7; font-size: 0.8rem;"></p>
+        <p id="dateTime" style="opacity: 0.7; font-size: 0.8rem; margin-top: 5px;"></p>
+
         <div id="temp" class="temp">--°C</div>
-        <div id="cloudPrediction" style="font-weight: bold; color: #4ecca3;">Connecting...</div>
-        <div class="tip-box" id="tip">Waiting...</div>
+        <div id="cloudPrediction" style="font-size: 1.1rem; color: #4ecca3; font-weight: bold;">Syncing...</div>
+        
+        <div class="tip-box" id="tip">Waiting for data...</div>
 
         <div class="stat-grid">
-            <div class="stat-card"><p>Clouds</p><span id="clouds">--%</span></div>
-            <div class="stat-card"><p>Humidity</p><span id="humidity">--%</span></div>
+            <div class="stat-card">
+                <p>Cloudiness</p>
+                <span id="clouds">--%</span>
+            </div>
+            <div class="stat-card">
+                <p>Moon Phase</p>
+                <span id="moon">--</span>
+            </div>
+            <div class="stat-card">
+                <p>Humidity</p>
+                <span id="humidity">--%</span>
+            </div>
+            <div class="stat-card">
+                <p>Wind Speed</p>
+                <span id="wind">-- km/h</span>
+            </div>
         </div>
 
-        <button onclick="getBalerWeather()">Refresh Weather</button>
-        <button class="test-btn" onclick="sendManualTest()">Click to Test Notification</button>
-        <p style="font-size: 0.7rem; opacity: 0.5;">Auto-refresh: 1 Minute</p>
+        <button onclick="getBalerWeather()">Refresh Now</button>
+        <p style="font-size: 0.7rem; opacity: 0.5; margin-top: 15px;">Auto-refreshing every 60 seconds</p>
     </div>
 
     <script>
         const apiKey = "084cee246bd0e5b348128881ea756965"; 
         const city = "Baler,PH";
 
-        // 1. Force Request on Click
-        function sendManualTest() {
-            if (!("Notification" in window)) {
-                alert("This browser does not support notifications.");
-                return;
-            }
-            Notification.requestPermission().then(permission => {
-                if (permission === "granted") {
-                    new Notification("Test Working! ✅", { body: "If you see this, your phone is ready for weather alerts." });
-                } else {
-                    alert("Permission denied. Check your phone settings.");
-                }
-            });
+        if ("Notification" in window) {
+            Notification.requestPermission();
         }
 
         function triggerNotification(title, message) {
-            if (window.Notification && Notification.permission === "granted") {
-                new Notification(title, { body: message, tag: 'baler-weather' });
+            if (Notification.permission === "granted") {
+                new Notification(title, { body: message, tag: 'baler-update' });
             }
         }
 
+        function getMoonPhase() {
+            const date = new Date();
+            const lp = 2551443; 
+            const new_moon = new Date(1970, 0, 7, 20, 35, 0);
+            const phase = ((date.getTime() - new_moon.getTime()) / 1000) % lp;
+            const res = Math.floor((phase / (24 * 3600)) + 1);
+            if (res <= 1) return "New Moon 🌑";
+            if (res <= 6) return "Waxing Crescent 🌒";
+            if (res <= 9) return "First Quarter 🌓";
+            if (res <= 13) return "Waxing Gibbous 🌔";
+            if (res <= 16) return "Full Moon 🌕";
+            if (res <= 21) return "Waning Gibbous 🌖";
+            if (res <= 24) return "Last Quarter 🌗";
+            return "Waning Crescent 🌘";
+        }
+
         async function getBalerWeather() {
-            document.getElementById('dateTime').innerText = new Date().toLocaleTimeString();
+            document.getElementById('dateTime').innerText = "Last sync: " + new Date().toLocaleTimeString();
             try {
                 const response = await fetch(`https://api.openweathermap.org/data/2.5/weather?q=${city}&units=metric&appid=${apiKey}`);
                 const data = await response.json();
-                
+
                 const clouds = data.clouds.all;
                 const temp = Math.round(data.main.temp);
-                const desc = data.weather[0].main;
+                const humidity = data.main.humidity;
+                const wind = data.wind.speed;
                 
-                let prediction = (clouds > 80 || desc === "Rain") ? "Rainy 🌧️" : (clouds < 20 ? "Sunny ☀️" : "Cloudy 🌤️");
-                let tip = (clouds > 80) ? "Bring umbrella!" : "Stay safe!";
+                let prediction = "";
+                let tip = "";
+
+                if (clouds >= 80) {
+                    prediction = "Rainy / Overcast 🌧️";
+                    tip = "SAFETY TIP: High chance of rain. Bring an umbrella! ☂️";
+                } else if (clouds < 20) {
+                    prediction = "Clear Skies ☀️";
+                    tip = "SAFETY TIP: Strong sun! Wear sunscreen. 🧴";
+                } else {
+                    prediction = "Partly Cloudy 🌤️";
+                    tip = "SAFETY TIP: Enjoy the day in Baler! 🚶";
+                }
+
+                triggerNotification(`Baler: ${temp}°C`, tip);
 
                 document.getElementById('temp').innerText = temp + "°C";
                 document.getElementById('cloudPrediction').innerText = prediction;
                 document.getElementById('clouds').innerText = clouds + "%";
-                document.getElementById('humidity').innerText = data.main.humidity + "%";
+                document.getElementById('moon').innerText = getMoonPhase();
+                document.getElementById('humidity').innerText = humidity + "%";
+                document.getElementById('wind').innerText = wind + " km/h";
                 document.getElementById('tip').innerText = tip;
 
-                triggerNotification(`Baler: ${temp}°C`, tip);
-            } catch (e) {
+                document.body.style.background = (clouds > 70) ? "#37474f" : "#1a1a2e";
+
+            } catch (err) {
                 document.getElementById('cloudPrediction').innerText = "Sync Error";
             }
         }
 
-        // Initial Start
         getBalerWeather();
         setInterval(getBalerWeather, 60000);
     </script>
