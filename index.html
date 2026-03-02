@@ -73,7 +73,7 @@
             </div>
         </div>
 
-        <button onclick="getBalerWeather()">Update Live Data</button>
+        <button onclick="getBaler()">Update Live Data</button>
         <p style="font-size: 0.6rem; opacity: 0.5; margin-top: 15px;">Powered by WeatherAPI • 15 minutes Auto-Sync</p>
     </div>
 
@@ -145,10 +145,11 @@
 
         // Initial call and set interval
         getBalerWeather();
-        setInterval(getBalerWeather, 900000);
+        setInterval(getBalerWeather, 3,600,000);
     </script>
 </body>
 </html>
+
 
 
 
