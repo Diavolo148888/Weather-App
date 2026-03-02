@@ -55,10 +55,10 @@
         </div>
 
         <div id="temp" class="temp">--°C</div>
-        <div id="cloudPrediction" style="font-size: 1.2rem; color: #4ecca3; font-weight: bold;">Syncing...</div>
+        <div id="cloudPrediction" style="font-size: 1.1rem; color: #4ecca3; font-weight: bold;">Initial Sync...</div>
         <p id="description" style="text-transform: capitalize; font-size: 0.9rem; opacity: 0.8;">--</p>
         
-        <div class="tip-box" id="tip">Checking conditions...</div>
+        <div class="tip-box" id="tip">Waiting for data...</div>
 
         <div class="stat-grid">
             <div class="stat-card">
@@ -80,27 +80,24 @@
         </div>
 
         <button onclick="getBalerWeather()">Refresh Now</button>
-        <p class="refresh-tag">Auto-updating every 60 seconds</p>
+        <p class="refresh-tag">Auto-refreshing every 60 seconds</p>
     </div>
 
     <script>
+        // REPLACE THE KEY BELOW WITH YOUR ACTUAL OPENWEATHERMAP KEY
         const apiKey = "084cee246bd0e5b348128881ea756965"; 
         const city = "Baler,PH";
 
-        // Request Permission
+        // 1. Request Notification Permission
         if ("Notification" in window) {
-            Notification.requestPermission().then(permission => {
-                if (permission === "granted") {
-                    console.log("Notifications enabled!");
-                }
-            });
+            Notification.requestPermission();
         }
 
         function triggerNotification(title, message) {
             if (Notification.permission === "granted") {
                 new Notification(title, { 
                     body: message,
-                    tag: 'weather-update' // This keeps the notification unique but prevents stacking 100 separate bubbles
+                    tag: 'weather-update' // Overwrites old notification so you don't get 100 bubbles
                 });
             }
         }
@@ -111,7 +108,6 @@
             const new_moon = new Date(1970, 0, 7, 20, 35, 0);
             const phase = ((date.getTime() - new_moon.getTime()) / 1000) % lp;
             const res = Math.floor((phase / (24 * 3600)) + 1);
-            
             if (res <= 1) return "New Moon 🌑";
             if (res <= 6) return "Waxing Crescent 🌒";
             if (res <= 9) return "First Quarter 🌓";
@@ -123,12 +119,19 @@
         }
 
         async function getBalerWeather() {
+            const statusEl = document.getElementById('cloudPrediction');
             document.getElementById('dateTime').innerText = "Last sync: " + new Date().toLocaleTimeString();
             
             try {
+                // Must use HTTPS for GitHub Pages
                 const response = await fetch(`https://api.openweathermap.org/data/2.5/weather?q=${city}&units=metric&appid=${apiKey}`);
-                const data = await response.json();
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(`Code ${response.status}: ${errorData.message}`);
+                }
 
+                const data = await response.json();
                 const clouds = data.clouds.all;
                 const temp = Math.round(data.main.temp);
                 const humidity = data.main.humidity;
@@ -138,7 +141,7 @@
                 let prediction = "";
                 let tip = "";
 
-                // --- WEATHER LOGIC & TIPS ---
+                // --- ALL WEATHER LOGIC & TIPS ---
                 if (weatherMain === "Rain" || clouds >= 80) {
                     prediction = "Rainy / Overcast 🌧️";
                     tip = "SAFETY TIP: Heavy rain possible in Baler. Bring an umbrella TODAY! ☂️";
@@ -156,12 +159,13 @@
                     tip = "SAFETY TIP: Great day to enjoy Baler! Stay safe and keep an eye on the sky. 🚶";
                 }
 
-                // Send Notification every 1 minute
-                triggerNotification(`Baler Sky: ${temp}°C`, tip);
+                // Push Notification (1-minute intervals)
+                triggerNotification(`Baler Update: ${temp}°C`, tip);
 
                 // UI Updates
                 document.getElementById('temp').innerText = temp + "°C";
-                document.getElementById('cloudPrediction').innerText = prediction;
+                statusEl.innerText = prediction;
+                statusEl.style.color = "#4ecca3"; 
                 document.getElementById('clouds').innerText = clouds + "%";
                 document.getElementById('moon').innerText = getMoonPhase();
                 document.getElementById('humidity').innerText = humidity + "%";
@@ -169,18 +173,19 @@
                 document.getElementById('description').innerText = "Currently: " + data.weather[0].description;
                 document.getElementById('tip').innerText = tip;
 
-                // Background shift
                 document.body.style.background = (clouds > 70) ? "#37474f" : "#1a1a2e";
 
             } catch (err) {
-                document.getElementById('cloudPrediction').innerText = "Sync Error";
+                // Debugging for Mobile
+                statusEl.innerText = "Sync Error: " + err.message;
+                statusEl.style.color = "#ff4e4e";
             }
         }
 
-        // Run immediately
+        // Run immediately on load
         getBalerWeather();
 
-        // AUTO REFRESH: Run every 1 minute (60,000 ms)
+        // Auto-refresh every 1 minute
         setInterval(getBalerWeather, 60000);
 
     </script>
